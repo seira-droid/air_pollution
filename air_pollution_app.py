@@ -7,18 +7,13 @@ import random
 import os
 import streamlit.components.v1 as components
 import json
-from streamlit_lottie import st_lottie
-from streamlit_javascript import st_javascript
 
 # --- CONFIG ---
 st.set_page_config(page_title="Clean Air Monitor", layout="wide")
 
 # --- AUTO DETECT SYSTEM THEME ---
 def get_system_theme():
-    theme = st_javascript("""
-        () => window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light"
-    """)
-    return theme or "light"
+    return st.get_option("theme.base") or "light"
 
 system_theme = get_system_theme()
 
