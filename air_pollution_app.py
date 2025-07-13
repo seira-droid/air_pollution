@@ -24,7 +24,6 @@ st.markdown("""
 # --- API TOKEN & FILE ---
 WAQI_TOKEN = "f1c44fa6a73e8ac0b6d9f23b3166481ff6a281d2"
 OPENWEATHER_API_KEY = "your_openweather_api_key"
-aqi_log_file = "aqi_log.csv"
 
 # --- FUNCTIONS ---
 @st.cache_data(ttl=600)
@@ -35,6 +34,11 @@ def get_aqi_data(lat, lon):
 @st.cache_data(ttl=600)
 def get_weather_data(lat, lon):
     url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
+    return requests.get(url).json()
+
+@st.cache_data(ttl=600)
+def get_forecast_data(lat, lon):
+    url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
     return requests.get(url).json()
 
 def get_browser_location():
@@ -94,16 +98,6 @@ def get_health_tip(aqi):
     else:
         return "🚨 Health emergency! Avoid all outdoor activities."
 
-def log_aqi(city, aqi):
-    today = datetime.date.today().isoformat()
-    if not os.path.exists(aqi_log_file):
-        pd.DataFrame(columns=["date", "city", "aqi"]).to_csv(aqi_log_file, index=False)
-    df = pd.read_csv(aqi_log_file)
-    if not ((df['date'] == today) & (df['city'] == city)).any():
-        new_row = pd.DataFrame([{"date": today, "city": city, "aqi": aqi}])
-        df = pd.concat([df, new_row], ignore_index=True)
-        df.to_csv(aqi_log_file, index=False)
-
 def get_random_tip():
     tips = [
         "💡 Use indoor plants like spider plant to improve air quality.",
@@ -122,7 +116,7 @@ def show_map(lat, lon, station_name):
 # --- MAIN APP ---
 
 st.title("🌍 Clean Air Monitor")
-st.caption("Real-time AQI with insights, history, health tips, and weather.")
+st.caption("Real-time AQI with insights, health tips, and weather.")
 
 use_gps = st.button("📡 Use My Location")
 
@@ -160,6 +154,7 @@ else:
 with st.spinner("Loading AQI and Weather Data..."):
     data = get_aqi_data(lat, lon)
     weather = get_weather_data(lat, lon)
+    forecast = get_forecast_data(lat, lon)
 
 if data["status"] == "ok":
     aqi = data["data"]["aqi"]
@@ -168,8 +163,6 @@ if data["status"] == "ok":
     category, color = get_aqi_category(aqi)
     tip = get_health_tip(aqi)
     pollutant_data = data["data"].get("iaqi", {})
-
-    log_aqi(city, aqi)
 
     with st.container():
         st.markdown(f"""
@@ -195,6 +188,15 @@ if data["status"] == "ok":
             st.write(f"**Humidity:** {humidity}%")
             st.write(f"**Wind Speed:** {wind} m/s")
 
+        if forecast.get("list"):
+            st.subheader("🔮 3-Day Weather Forecast")
+            forecast_list = forecast["list"][:24*3:8]  # Every 8th entry ≈ 24 hours
+            for item in forecast_list:
+                date = item["dt_txt"].split(" ")[0]
+                temp = item["main"]["temp"]
+                desc = item["weather"][0]["description"].capitalize()
+                st.write(f"📅 {date}: {desc}, 🌡️ {temp} °C")
+
         with st.expander("🧪 View Pollutant Levels"):
             for key, val in pollutant_data.items():
                 st.write(f"**{key.upper()}**: {val['v']}")
@@ -203,16 +205,5 @@ if data["status"] == "ok":
         show_map(lat, lon, station)
 
     st.success(f"🌱 Tip of the Day: {get_random_tip()}")
-
-    if os.path.exists(aqi_log_file):
-        df = pd.read_csv(aqi_log_file)
-        df_city = df[df["city"] == city]
-        if not df_city.empty:
-            st.subheader("📉 Air Quality Change Over Time")
-            st.caption("This chart shows how clean or polluted the air has been in your area over the last few days.")
-            st.markdown("✅ Lower AQI = Better air | ❌ Higher AQI = More pollution")
-            fig = px.line(df_city, x="date", y="aqi", title="AQI Over Time", markers=True)
-            st.plotly_chart(fig)
-            st.download_button("⬇️ Download AQI History", data=df_city.to_csv(index=False), file_name=f"{city}_aqi_history.csv")
 else:
     st.error("❌ Could not load AQI data. Try again later.")
