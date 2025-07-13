@@ -27,6 +27,16 @@ OPENWEATHER_API_KEY = "your_openweather_api_key"
 aqi_log_file = "aqi_log.csv"
 
 # --- FUNCTIONS ---
+@st.cache_data(ttl=600)
+def get_aqi_data(lat, lon):
+    url = f"https://api.waqi.info/feed/geo:{lat};{lon}/?token={WAQI_TOKEN}"
+    return requests.get(url).json()
+
+@st.cache_data(ttl=600)
+def get_weather_data(lat, lon):
+    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
+    return requests.get(url).json()
+
 def get_browser_location():
     location_param = st.query_params.get("location")
     if not location_param:
@@ -39,17 +49,15 @@ def get_browser_location():
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude
                     };
-                    const newUrl = window.location.href.split('?')[0] + '?location=' + encodeURIComponent(JSON.stringify(coords));
-                    window.location.href = newUrl;
-                },
-                (error) => {
-                    window.location.href = window.location.href;
+                    const message = JSON.stringify(coords);
+                    window.parent.postMessage(message, '*');
                 }
             );
             </script>
             """,
             height=0
         )
+        st.info("🔄 Attempting to fetch GPS location... please allow it in your browser.")
         st.stop()
 
     try:
@@ -57,14 +65,6 @@ def get_browser_location():
         return coords['latitude'], coords['longitude'], "Live GPS"
     except:
         return None, None, None
-
-def get_aqi_data(lat, lon):
-    url = f"https://api.waqi.info/feed/geo:{lat};{lon}/?token={WAQI_TOKEN}"
-    return requests.get(url).json()
-
-def get_weather_data(lat, lon):
-    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
-    return requests.get(url).json()
 
 def get_aqi_category(aqi):
     if aqi <= 50:
@@ -142,8 +142,9 @@ else:
     else:
         lat, lon, city = 9.31575, 76.61513, "Chengannur"
 
-data = get_aqi_data(lat, lon)
-weather = get_weather_data(lat, lon)
+with st.spinner("Loading AQI and Weather Data..."):
+    data = get_aqi_data(lat, lon)
+    weather = get_weather_data(lat, lon)
 
 if data["status"] == "ok":
     aqi = data["data"]["aqi"]
@@ -155,34 +156,36 @@ if data["status"] == "ok":
 
     log_aqi(city, aqi)
 
-    st.markdown(f"""
-    <div style='background-color:{color}; padding:20px; border-radius:10px'>
-        <h2 style='color:black;'>📍 {city}</h2>
-        <h1 style='color:black;'>🌫️ AQI: {aqi} - {category}</h1>
-        <p style='color:black;'>Nearest station: {station} <br> Updated: {updated}</p>
-    </div>
-    """, unsafe_allow_html=True)
+    with st.container():
+        st.markdown(f"""
+        <div style='background-color:{color}; padding:20px; border-radius:10px'>
+            <h2 style='color:black;'>📍 {city}</h2>
+            <h1 style='color:black;'>🌫️ AQI: {aqi} - {category}</h1>
+            <p style='color:black;'>Nearest station: {station} <br> Updated: {updated}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.info(tip)
+    with st.expander("📈 View Details"):
+        st.info(tip)
 
-    if weather.get("main"):
-        st.subheader("🌦️ Local Weather")
-        temp = weather["main"]["temp"]
-        desc = weather["weather"][0]["description"].capitalize()
-        humidity = weather["main"]["humidity"]
-        wind = weather["wind"]["speed"]
+        if weather.get("main"):
+            st.subheader("🌦️ Local Weather")
+            temp = weather["main"]["temp"]
+            desc = weather["weather"][0]["description"].capitalize()
+            humidity = weather["main"]["humidity"]
+            wind = weather["wind"]["speed"]
 
-        st.write(f"**Temperature:** {temp} °C")
-        st.write(f"**Condition:** {desc}")
-        st.write(f"**Humidity:** {humidity}%")
-        st.write(f"**Wind Speed:** {wind} m/s")
+            st.write(f"**Temperature:** {temp} °C")
+            st.write(f"**Condition:** {desc}")
+            st.write(f"**Humidity:** {humidity}%")
+            st.write(f"**Wind Speed:** {wind} m/s")
 
-    with st.expander("🧪 View Pollutant Levels"):
-        for key, val in pollutant_data.items():
-            st.write(f"**{key.upper()}**: {val['v']}")
+        with st.expander("🧪 View Pollutant Levels"):
+            for key, val in pollutant_data.items():
+                st.write(f"**{key.upper()}**: {val['v']}")
 
-    st.subheader("📍 Nearest AQI Station")
-    show_map(lat, lon, station)
+        st.subheader("📍 Nearest AQI Station")
+        show_map(lat, lon, station)
 
     st.success(f"🌱 Tip of the Day: {get_random_tip()}")
 
