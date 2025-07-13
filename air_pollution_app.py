@@ -12,10 +12,10 @@ from streamlit_lottie import st_lottie
 # --- CONFIG ---
 st.set_page_config(page_title="Clean Air Monitor", layout="wide")
 
-# --- THEME-AWARE STYLING ---
-theme = st.get_option("theme.base")
+# --- THEME TOGGLE ---
+selected_theme = st.selectbox("Choose Theme Mode", ["Light", "Dark"], index=0)
 
-if theme == "dark":
+if selected_theme == "Dark":
     background_color = "#1e1e1e"
     text_color = "#f1f1f1"
     card_color = "#2a2a2a"
