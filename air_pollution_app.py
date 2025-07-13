@@ -8,7 +8,7 @@ import os
 import streamlit.components.v1 as components
 import json
 from streamlit_lottie import st_lottie
-import openai
+from openai import OpenAI
 
 # --- CONFIG ---
 st.set_page_config(page_title="Clean Air Monitor", layout="wide")
@@ -74,27 +74,29 @@ else:
 st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.subheader("🤖 Ask AirBot - Your AQI Assistant")
 
-# ✅ Use only secure secrets
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+if "OPENAI_API_KEY" in st.secrets:
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-user_question = st.text_input("Ask about AQI, weather, or health tips")
+    user_question = st.text_input("Ask about AQI, weather, or health tips")
 
-if user_question:
-    with st.spinner("AirBot is thinking..."):
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are AirBot, a helpful assistant that answers air quality and weather related questions."},
-                    {"role": "user", "content": user_question}
-                ],
-                temperature=0.7,
-                max_tokens=200
-            )
-            reply = response['choices'][0]['message']['content']
-            st.success(reply)
-        except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
+    if user_question:
+        with st.spinner("AirBot is thinking..."):
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are AirBot, a helpful assistant that answers air quality and weather related questions."},
+                        {"role": "user", "content": user_question}
+                    ],
+                    temperature=0.7,
+                    max_tokens=200
+                )
+                reply = response.choices[0].message.content
+                st.success(reply)
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
+else:
+    st.warning("⚠️ OpenAI API key not found. Chatbot disabled.")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -242,4 +244,3 @@ if data["status"] == "ok":
     st.success(f"🌱 Tip of the Day: {get_random_tip()}")
 else:
     st.error("❌ Could not load AQI data. Try again later.")
-
