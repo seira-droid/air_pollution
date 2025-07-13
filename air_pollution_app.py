@@ -19,11 +19,63 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- API TOKEN & FILE ---
+# --- API KEYS ---
 WAQI_TOKEN = "f1c44fa6a73e8ac0b6d9f23b3166481ff6a281d2"
-OPENWEATHER_API_KEY = "19ad1b0624de0640e7b607d1a8b52314"  # ✅ Your API key
+OPENWEATHER_API_KEY = "19ad1b0624de0640e7b607d1a8b52314"
 
-# --- FUNCTIONS ---
+# --- AQI CATEGORY RANGES ---
+def get_aqi_category(aqi):
+    if aqi <= 50:
+        return "🟢 Good (0–50)", "#A8E6CF"
+    elif aqi <= 100:
+        return "🟡 Moderate (51–100)", "#FFD3B6"
+    elif aqi <= 150:
+        return "🟠 Unhealthy for Sensitive Groups (101–150)", "#FFAAA5"
+    elif aqi <= 200:
+        return "🔴 Unhealthy (151–200)", "#FF8C94"
+    elif aqi <= 300:
+        return "🟣 Very Unhealthy (201–300)", "#D291BC"
+    else:
+        return "⚫ Hazardous (301+)", "#B5838D"
+
+# --- HEALTH TIP ---
+def get_health_tip(aqi):
+    if aqi <= 50:
+        return "✅ Air is clean. Great day to be outdoors!"
+    elif aqi <= 100:
+        return "☁️ Sensitive groups should reduce prolonged outdoor exertion."
+    elif aqi <= 150:
+        return "😷 Avoid heavy outdoor exercise. Consider wearing a mask."
+    elif aqi <= 200:
+        return "⚠️ Everyone should limit prolonged outdoor exertion."
+    elif aqi <= 300:
+        return "❌ Stay indoors and use air purifiers."
+    else:
+        return "🚨 Health emergency! Avoid all outdoor activities."
+
+# --- RANDOM TIP ---
+def get_random_tip():
+    tips = [
+        "💡 Use indoor plants like spider plant to improve air quality.",
+        "🌀 Use HEPA filters to clean indoor air.",
+        "🏃‍♀️ Exercise indoors on high AQI days.",
+        "📱 Check AQI before outdoor plans!",
+        "🪟 Close windows during high pollution times."
+    ]
+    return random.choice(tips)
+
+# --- POLLUTANT EXPLANATIONS ---
+pollutant_info = {
+    "pm25": "Fine Particles (PM2.5) – Can penetrate lungs and enter bloodstream. Major health risk.",
+    "pm10": "Coarse Particles (PM10) – Irritates nose, throat, and lungs.",
+    "no2": "Nitrogen Dioxide (NO₂) – From vehicles and power plants. Can cause asthma and lung issues.",
+    "so2": "Sulfur Dioxide (SO₂) – Comes from burning coal and oil. Irritates eyes and lungs.",
+    "o3": "Ozone (O₃) – Forms in sunlight. Bad at ground level; causes chest pain and coughing.",
+    "co": "Carbon Monoxide (CO) – From incomplete burning. Dangerous in high amounts.",
+    "nh3": "Ammonia (NH₃) – From agriculture and cleaning products. Can irritate eyes and lungs."
+}
+
+# --- CACHED API CALLS ---
 @st.cache_data(ttl=600)
 def get_aqi_data(lat, lon):
     url = f"https://api.waqi.info/feed/geo:{lat};{lon}/?token={WAQI_TOKEN}"
@@ -39,6 +91,7 @@ def get_forecast_data(lat, lon):
     url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
     return requests.get(url).json()
 
+# --- LOCATION FETCH ---
 def get_browser_location():
     location_param = st.query_params.get("location")
     if not location_param:
@@ -68,44 +121,7 @@ def get_browser_location():
     except:
         return None, None, None
 
-def get_aqi_category(aqi):
-    if aqi <= 50:
-        return "🟢 Good", "#A8E6CF"
-    elif aqi <= 100:
-        return "🟡 Moderate", "#FFD3B6"
-    elif aqi <= 150:
-        return "🟠 Unhealthy for Sensitive Groups", "#FFAAA5"
-    elif aqi <= 200:
-        return "🔴 Unhealthy", "#FF8C94"
-    elif aqi <= 300:
-        return "🟣 Very Unhealthy", "#D291BC"
-    else:
-        return "⚫ Hazardous", "#B5838D"
-
-def get_health_tip(aqi):
-    if aqi <= 50:
-        return "✅ Air is clean. Great day to be outdoors!"
-    elif aqi <= 100:
-        return "☁️ Sensitive groups should reduce prolonged outdoor exertion."
-    elif aqi <= 150:
-        return "😷 Avoid heavy outdoor exercise. Consider wearing a mask."
-    elif aqi <= 200:
-        return "⚠️ Everyone should limit prolonged outdoor exertion."
-    elif aqi <= 300:
-        return "❌ Stay indoors and use air purifiers."
-    else:
-        return "🚨 Health emergency! Avoid all outdoor activities."
-
-def get_random_tip():
-    tips = [
-        "💡 Use indoor plants like spider plant to improve air quality.",
-        "🌀 Use HEPA filters to clean indoor air.",
-        "🏃‍♀️ Exercise indoors on high AQI days.",
-        "📱 Check AQI before outdoor plans!",
-        "🪟 Close windows during high pollution times."
-    ]
-    return random.choice(tips)
-
+# --- FOLIUM MAP ---
 def show_map(lat, lon, station_name):
     m = folium.Map(location=[lat, lon], zoom_start=10)
     folium.Marker([lat, lon], tooltip=station_name, icon=folium.Icon(color="blue")).add_to(m)
@@ -124,9 +140,12 @@ else:
     if city_input:
         try:
             res = requests.get(
-                "https://nominatim.openstreetmap.org/search",
-                params={"format": "json", "q": city_input},
-                headers={"User-Agent": "air-pollution-app-seira"},
+                "http://api.openweathermap.org/geo/1.0/direct",
+                params={
+                    "q": city_input,
+                    "limit": 1,
+                    "appid": OPENWEATHER_API_KEY
+                },
                 timeout=5
             )
             res.raise_for_status()
@@ -141,7 +160,7 @@ else:
         if geocode:
             lat = float(geocode[0]['lat'])
             lon = float(geocode[0]['lon'])
-            city = city_input
+            city = geocode[0].get("name", city_input)
         else:
             st.error("City not found. Using default location.")
             lat, lon, city = 9.31575, 76.61513, "Chengannur"
@@ -161,59 +180,63 @@ if data["status"] == "ok":
     tip = get_health_tip(aqi)
     pollutant_data = data["data"].get("iaqi", {})
 
-    with st.container():
-        st.markdown(f"""
-        <div style='background-color:{color}; padding:20px; border-radius:10px'>
-            <h2 style='color:black;'>📍 {city}</h2>
-            <h1 style='color:black;'>🌫️ AQI: {aqi} - {category}</h1>
-            <p style='color:black;'>Nearest station: {station} <br> Updated: {updated}</p>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown(f"<div style='background-color:{color}; padding:30px; border-radius:10px'>", unsafe_allow_html=True)
 
-    with st.expander("📈 View Details"):
-        st.info(tip)
+    st.markdown(f"""
+        <h2 style='color:black;'>📍 {city}</h2>
+        <h1 style='color:black;'>🌫️ AQI: {aqi} - {category}</h1>
+        <p style='color:black;'>Nearest station: {station} <br> Updated: {updated}</p>
+    """, unsafe_allow_html=True)
 
-        if weather.get("main"):
-            st.subheader("🌦️ Local Weather Conditions")
-            temp = weather["main"]["temp"]
-            desc = weather["weather"][0]["description"].capitalize()
-            humidity = weather["main"]["humidity"]
-            wind = weather["wind"]["speed"]
+    st.info(tip)
 
-            st.write(f"**Temperature:** {temp} °C")
-            st.write(f"**Weather:** {desc}")
-            st.write(f"**Humidity:** {humidity}%")
-            st.write(f"**Wind Speed:** {wind} m/s")
+    if weather.get("main"):
+        st.subheader("🌦️ Local Weather Conditions")
+        temp = weather["main"]["temp"]
+        desc = weather["weather"][0]["description"].capitalize()
+        humidity = weather["main"]["humidity"]
+        wind = weather["wind"]["speed"]
+        icon_code = weather["weather"][0]["icon"]
+        icon_url = f"http://openweathermap.org/img/wn/{icon_code}@2x.png"
 
-        if forecast.get("list"):
-            st.subheader("🔮 3-Day Weather Forecast")
-            forecast_by_day = {}
+        st.image(icon_url, width=80)
+        st.write(f"**Temperature:** {temp} °C")
+        st.write(f"**Weather:** {desc}")
+        st.write(f"**Humidity:** {humidity}%")
+        st.write(f"**Wind Speed:** {wind} m/s")
 
-            for item in forecast["list"]:
-                date = item["dt_txt"].split(" ")[0]
-                if date not in forecast_by_day:
-                    forecast_by_day[date] = []
-                forecast_by_day[date].append(item)
+    if forecast.get("list"):
+        st.subheader("🔮 3-Day Weather Forecast")
+        forecast_by_day = {}
+        for item in forecast["list"]:
+            date = item["dt_txt"].split(" ")[0]
+            if date not in forecast_by_day:
+                forecast_by_day[date] = []
+            forecast_by_day[date].append(item)
 
-            count = 0
-            for date, entries in forecast_by_day.items():
-                if count == 3:
-                    break
-                avg_temp = sum(entry["main"]["temp"] for entry in entries) / len(entries)
-                descs = [entry["weather"][0]["description"] for entry in entries]
-                most_common_desc = max(set(descs), key=descs.count).capitalize()
-                st.write(f"📅 {date}: {most_common_desc}, 🌡️ Avg Temp: {avg_temp:.1f} °C")
-                count += 1
+        count = 0
+        for date, entries in forecast_by_day.items():
+            if count == 3:
+                break
+            avg_temp = sum(entry["main"]["temp"] for entry in entries) / len(entries)
+            descs = [entry["weather"][0]["description"] for entry in entries]
+            most_common_desc = max(set(descs), key=descs.count).capitalize()
+            st.write(f"📅 {date}: {most_common_desc}, 🌡️ Avg Temp: {avg_temp:.1f} °C")
+            count += 1
 
-        with st.expander("🧪 View Pollutant Levels"):
-            for key, val in pollutant_data.items():
-                st.write(f"**{key.upper()}**: {val['v']}")
+    if pollutant_data:
+        st.subheader("🧪 View Pollutant Levels")
+        for key, val in pollutant_data.items():
+            explanation = pollutant_info.get(key.lower(), "No info available.")
+            with st.expander(f"**{key.upper()}**: {val['v']}"):
+                st.markdown(f"🔎 {explanation}")
 
-        st.subheader("📍 Nearest AQI Station")
-        show_map(lat, lon, station)
+    st.subheader("📍 Nearest AQI Station")
+    show_map(lat, lon, station)
 
     st.success(f"🌱 Tip of the Day: {get_random_tip()}")
+    st.markdown("</div>", unsafe_allow_html=True)
+
 else:
     st.error("❌ Could not load AQI data. Try again later.")
-
 
