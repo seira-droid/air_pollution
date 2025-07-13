@@ -131,7 +131,22 @@ if use_gps:
 else:
     city_input = st.text_input("Enter city name (optional)")
     if city_input:
-        geocode = requests.get(f"https://nominatim.openstreetmap.org/search?format=json&q={city_input}").json()
+        try:
+            res = requests.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"format": "json", "q": city_input},
+                headers={"User-Agent": "air-pollution-app-seira"},
+                timeout=5
+            )
+            res.raise_for_status()
+            geocode = res.json()
+        except requests.exceptions.RequestException as e:
+            st.error(f"🌐 Geolocation request failed: {e}")
+            geocode = []
+        except ValueError:
+            st.error("⚠️ Invalid response from location service.")
+            geocode = []
+
         if geocode:
             lat = float(geocode[0]['lat'])
             lon = float(geocode[0]['lon'])
@@ -227,3 +242,4 @@ aqi2 = get_aqi_data(lat2, lon2)["data"]["aqi"]
 
 st.metric(label=f"{city1}", value=aqi1)
 st.metric(label=f"{city2}", value=aqi2)
+
