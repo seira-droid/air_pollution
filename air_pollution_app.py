@@ -48,7 +48,7 @@ h1, h2, h3 {{ color: {text_color}; }}
 </div>""", unsafe_allow_html=True)
 
 # --- API KEYS ---
-WAQI_TOKEN = " f1c44fa6a73e8ac0b6d9f23b3166481ff6a281d2
+WAQI_TOKEN = " f1c44fa6a73e8ac0b6d9f23b3166481ff6a281d2"
 "
 OPENWEATHER_API_KEY = "19ad1b0624de0640e7b607d1a8b52314"
 
