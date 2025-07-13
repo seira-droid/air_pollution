@@ -8,6 +8,7 @@ import os
 import streamlit.components.v1 as components
 import json
 from streamlit_lottie import st_lottie
+import openai
 
 # --- CONFIG ---
 st.set_page_config(page_title="Clean Air Monitor", layout="wide")
@@ -69,27 +70,38 @@ if lottie_air:
 else:
     st.warning("⚠️ Lottie animation failed to load. Please check your connection or the URL.")
 
-# --- AI CHATBOT (Mock Version) ---
+# --- AI CHATBOT (Real GPT API) ---
 st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.subheader("🤖 Ask AirBot - Your AQI Assistant")
-user_question = st.text_input("Type your question about air quality or health")
 
-if user_question:
-    if "mask" in user_question.lower():
-        st.info("😷 Yes, wearing a mask is recommended when AQI is above 100, especially if you have breathing issues.")
-    elif "exercise" in user_question.lower():
-        st.info("🏃‍♀️ It's best to avoid heavy outdoor exercise when AQI exceeds 150.")
-    elif "good aqi" in user_question.lower():
-        st.success("🟢 AQI between 0 and 50 is considered good and safe for outdoor activities.")
-    else:
-        st.info("💬 I'm still learning! Please ask about AQI levels, masks, or health tips.")
+openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else st.text_input("Enter your OpenAI API key", type="password")
+user_question = st.text_input("Ask about AQI, weather, or health tips")
+
+if user_question and openai.api_key:
+    with st.spinner("AirBot is thinking..."):
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are AirBot, a helpful assistant that answers air quality and weather related questions."},
+                    {"role": "user", "content": user_question}
+                ],
+                temperature=0.7,
+                max_tokens=200
+            )
+            reply = response['choices'][0]['message']['content']
+            st.success(reply)
+        except Exception as e:
+            st.error(f"❌ Error: {str(e)}")
+elif user_question:
+    st.warning("⚠️ Please enter your OpenAI API key to continue.")
+
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- API KEYS ---
+# --- AQI AND WEATHER CONFIG ---
 WAQI_TOKEN = "f1c44fa6a73e8ac0b6d9f23b3166481ff6a281d2"
 OPENWEATHER_API_KEY = "19ad1b0624de0640e7b607d1a8b52314"
 
-# --- HELPER FUNCTIONS ---
 @st.cache_data(ttl=600)
 def get_aqi_data(lat, lon):
     url = f"https://api.waqi.info/feed/geo:{lat};{lon}/?token={WAQI_TOKEN}"
@@ -117,7 +129,7 @@ def get_aqi_category(aqi):
     elif aqi <= 300:
         return "🟣 Very Unhealthy (201-300)", "#D291BC"
     else:
-        return "⚫ Hazardous (301+)" , "#B5838D"
+        return "⚫ Hazardous (301+)", "#B5838D"
 
 def get_health_tip(aqi):
     if aqi <= 50:
@@ -148,7 +160,7 @@ def show_map(lat, lon, station_name):
     folium.Marker([lat, lon], tooltip=station_name, icon=folium.Icon(color="blue")).add_to(m)
     st_folium(m, width=700, height=300)
 
-# --- LOCATION INPUT ---
+# --- MAIN UI ---
 st.title("🌍 Clean Air Monitor")
 st.caption("Real-time AQI with insights, health tips, and weather.")
 
@@ -176,7 +188,7 @@ if city_input:
 else:
     lat, lon, city = 9.31575, 76.61513, "Chengannur"
 
-# --- FETCH AND DISPLAY DATA ---
+# --- FETCH DATA ---
 with st.spinner("Loading AQI and weather data..."):
     data = get_aqi_data(lat, lon)
     weather = get_weather_data(lat, lon)
@@ -232,4 +244,3 @@ if data["status"] == "ok":
     st.success(f"🌱 Tip of the Day: {get_random_tip()}")
 else:
     st.error("❌ Could not load AQI data. Try again later.")
-
