@@ -74,10 +74,12 @@ else:
 st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.subheader("🤖 Ask AirBot - Your AQI Assistant")
 
-openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else st.text_input("Enter your OpenAI API key", type="password")
+# ✅ Use only secure secrets
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+
 user_question = st.text_input("Ask about AQI, weather, or health tips")
 
-if user_question and openai.api_key:
+if user_question:
     with st.spinner("AirBot is thinking..."):
         try:
             response = openai.ChatCompletion.create(
@@ -93,8 +95,6 @@ if user_question and openai.api_key:
             st.success(reply)
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
-elif user_question:
-    st.warning("⚠️ Please enter your OpenAI API key to continue.")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -117,6 +117,38 @@ def get_forecast_data(lat, lon):
     url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
     return requests.get(url).json()
 
+# --- LOCATION INPUT ---
+city_input = st.text_input("Enter city name (or leave blank for default)")
+if city_input:
+    try:
+        res = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"format": "json", "q": city_input},
+            headers={"User-Agent": "air-pollution-app"},
+            timeout=5
+        )
+        res.raise_for_status()
+        geocode = res.json()
+        if geocode:
+            lat = float(geocode[0]['lat'])
+            lon = float(geocode[0]['lon'])
+            city = city_input
+        else:
+            st.error("City not found. Using default location.")
+            lat, lon, city = 9.31575, 76.61513, "Chengannur"
+    except:
+        st.error("Location lookup failed. Using default.")
+        lat, lon, city = 9.31575, 76.61513, "Chengannur"
+else:
+    lat, lon, city = 9.31575, 76.61513, "Chengannur"
+
+# --- FETCH DATA ---
+with st.spinner("Loading AQI and weather data..."):
+    data = get_aqi_data(lat, lon)
+    weather = get_weather_data(lat, lon)
+    forecast = get_forecast_data(lat, lon)
+
+# --- DATA DISPLAY ---
 def get_aqi_category(aqi):
     if aqi <= 50:
         return "🟢 Good (0-50)", "#A8E6CF"
@@ -159,40 +191,6 @@ def show_map(lat, lon, station_name):
     m = folium.Map(location=[lat, lon], zoom_start=10)
     folium.Marker([lat, lon], tooltip=station_name, icon=folium.Icon(color="blue")).add_to(m)
     st_folium(m, width=700, height=300)
-
-# --- MAIN UI ---
-st.title("🌍 Clean Air Monitor")
-st.caption("Real-time AQI with insights, health tips, and weather.")
-
-city_input = st.text_input("Enter city name (or leave blank for default)")
-if city_input:
-    try:
-        res = requests.get(
-            "https://nominatim.openstreetmap.org/search",
-            params={"format": "json", "q": city_input},
-            headers={"User-Agent": "air-pollution-app"},
-            timeout=5
-        )
-        res.raise_for_status()
-        geocode = res.json()
-        if geocode:
-            lat = float(geocode[0]['lat'])
-            lon = float(geocode[0]['lon'])
-            city = city_input
-        else:
-            st.error("City not found. Using default location.")
-            lat, lon, city = 9.31575, 76.61513, "Chengannur"
-    except:
-        st.error("Location lookup failed. Using default.")
-        lat, lon, city = 9.31575, 76.61513, "Chengannur"
-else:
-    lat, lon, city = 9.31575, 76.61513, "Chengannur"
-
-# --- FETCH DATA ---
-with st.spinner("Loading AQI and weather data..."):
-    data = get_aqi_data(lat, lon)
-    weather = get_weather_data(lat, lon)
-    forecast = get_forecast_data(lat, lon)
 
 if data["status"] == "ok":
     aqi = data["data"]["aqi"]
@@ -244,3 +242,4 @@ if data["status"] == "ok":
     st.success(f"🌱 Tip of the Day: {get_random_tip()}")
 else:
     st.error("❌ Could not load AQI data. Try again later.")
+
