@@ -10,33 +10,35 @@ import json
 
 # --- CONFIG ---
 st.set_page_config(page_title="Clean Air Monitor", layout="wide")
+
+# --- GLOBAL STYLING ---
 st.markdown("""
     <style>
+    html, body {
+        background-color: #f4f6f9;
+        font-family: 'Segoe UI', sans-serif;
+        color: #2e2e2e;
+    }
     .main > div:first-child {
         padding-top: 0rem;
     }
-    body {
-        background-color: #f5f7fa;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    h1, h2, h3, h4, h5 {
-        color: #222;
+    h1, h2, h3, h4 {
+        color: #2c3e50;
     }
     .stButton>button {
-        background-color: #3c91e6;
+        background-color: #1f77d0;
         color: white;
         border-radius: 10px;
         padding: 0.6em 1.2em;
         font-weight: bold;
         border: none;
-        transition: 0.3s;
     }
-    .stButton>button:hover {
-        background-color: #1f77d0;
-    }
-    .stTextInput>div>div>input {
-        border-radius: 10px;
-        border: 2px solid #ddd;
+    .card {
+        background-color: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -45,7 +47,7 @@ st.markdown("""
 WAQI_TOKEN = "f1c44fa6a73e8ac0b6d9f23b3166481ff6a281d2"
 OPENWEATHER_API_KEY = "19ad1b0624de0640e7b607d1a8b52314"
 
-# --- AQI CATEGORY RANGES ---
+# --- AQI CATEGORIES ---
 def get_aqi_category(aqi):
     if aqi <= 50:
         return "🟢 Good (0–50)", "#A8E6CF"
@@ -75,7 +77,7 @@ def get_health_tip(aqi):
     else:
         return "🚨 Health emergency! Avoid all outdoor activities."
 
-# --- RANDOM TIP ---
+# --- RANDOM TIPS ---
 def get_random_tip():
     tips = [
         "💡 Use indoor plants like spider plant to improve air quality.",
@@ -86,18 +88,17 @@ def get_random_tip():
     ]
     return random.choice(tips)
 
-# --- POLLUTANT EXPLANATIONS ---
 pollutant_info = {
-    "pm25": "Fine Particles (PM2.5) – Can penetrate lungs and enter bloodstream. Major health risk.",
-    "pm10": "Coarse Particles (PM10) – Irritates nose, throat, and lungs.",
-    "no2": "Nitrogen Dioxide (NO₂) – From vehicles and power plants. Can cause asthma and lung issues.",
-    "so2": "Sulfur Dioxide (SO₂) – Comes from burning coal and oil. Irritates eyes and lungs.",
-    "o3": "Ozone (O₃) – Forms in sunlight. Bad at ground level; causes chest pain and coughing.",
-    "co": "Carbon Monoxide (CO) – From incomplete burning. Dangerous in high amounts.",
-    "nh3": "Ammonia (NH₃) – From agriculture and cleaning products. Can irritate eyes and lungs."
+    "pm25": "PM2.5 - Fine particles that can enter bloodstream.",
+    "pm10": "PM10 - Can irritate lungs and throat.",
+    "no2": "NO₂ - Common in vehicle exhaust.",
+    "so2": "SO₂ - Comes from coal burning.",
+    "o3": "O₃ - Ground-level ozone, harmful.",
+    "co": "CO - Carbon Monoxide, dangerous in high amounts.",
+    "nh3": "NH₃ - Ammonia, irritating to eyes and lungs."
 }
 
-# --- CACHED API CALLS ---
+# --- API CALLS ---
 @st.cache_data(ttl=600)
 def get_aqi_data(lat, lon):
     url = f"https://api.waqi.info/feed/geo:{lat};{lon}/?token={WAQI_TOKEN}"
@@ -113,7 +114,7 @@ def get_forecast_data(lat, lon):
     url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
     return requests.get(url).json()
 
-# --- LOCATION FETCH ---
+# --- LOCATION ---
 def get_browser_location():
     location_param = st.query_params.get("location")
     if not location_param:
@@ -133,14 +134,13 @@ def get_browser_location():
         """, height=0)
         st.info("🔄 Attempting to fetch GPS location... please allow it in your browser.")
         st.stop()
-
     try:
         coords = json.loads(location_param[0])
         return coords['latitude'], coords['longitude'], "Live GPS"
     except:
         return None, None, None
 
-# --- FOLIUM MAP ---
+# --- MAP ---
 def show_map(lat, lon, station_name):
     m = folium.Map(location=[lat, lon], zoom_start=10)
     folium.Marker([lat, lon], tooltip=station_name, icon=folium.Icon(color="blue")).add_to(m)
@@ -148,109 +148,94 @@ def show_map(lat, lon, station_name):
 
 # --- MAIN APP ---
 st.title("🌍 Clean Air Monitor")
-st.caption("Real-time AQI with insights, health tips, and weather.")
+st.caption("Real-time AQI with weather, tips, and pollutant insights")
+
+st.sidebar.title("Navigation")
+st.sidebar.markdown("- 📍 Location Input\n- 🌫️ AQI Info\n- 🌦️ Weather\n- 🧪 Pollutants\n- 💡 Tips\n- 🗺️ Map")
 
 use_gps = st.button("📡 Use My Location")
-
 if use_gps:
     lat, lon, city = get_browser_location()
 else:
-    city_input = st.text_input("Enter city name (optional)")
+    city_input = st.text_input("Enter city name")
     if city_input:
-        try:
-            res = requests.get(
-                "http://api.openweathermap.org/geo/1.0/direct",
-                params={"q": city_input, "limit": 1, "appid": OPENWEATHER_API_KEY},
-                timeout=5
-            )
-            res.raise_for_status()
-            geocode = res.json()
-        except requests.exceptions.RequestException as e:
-            st.error(f"🌐 Geolocation request failed: {e}")
-            geocode = []
-        except ValueError:
-            st.error("⚠️ Invalid response from location service.")
-            geocode = []
-
+        res = requests.get("http://api.openweathermap.org/geo/1.0/direct",
+                          params={"q": city_input, "limit": 1, "appid": OPENWEATHER_API_KEY})
+        geocode = res.json()
         if geocode:
-            lat = float(geocode[0]['lat'])
-            lon = float(geocode[0]['lon'])
-            city = geocode[0].get("name", city_input)
+            lat = geocode[0]['lat']
+            lon = geocode[0]['lon']
+            city = geocode[0]['name']
         else:
-            st.error("City not found. Using default location.")
             lat, lon, city = 9.31575, 76.61513, "Chengannur"
     else:
         lat, lon, city = 9.31575, 76.61513, "Chengannur"
 
-with st.spinner("Loading AQI and Weather Data..."):
-    data = get_aqi_data(lat, lon)
+with st.spinner("Fetching data..."):
+    aqi_data = get_aqi_data(lat, lon)
     weather = get_weather_data(lat, lon)
     forecast = get_forecast_data(lat, lon)
 
-if data["status"] == "ok":
-    aqi = data["data"]["aqi"]
-    station = data["data"]["city"]["name"]
-    updated = data["data"]["time"]["s"]
+if aqi_data["status"] == "ok":
+    aqi = aqi_data["data"]["aqi"]
+    station = aqi_data["data"]["city"]["name"]
+    updated = aqi_data["data"]["time"]["s"]
     category, color = get_aqi_category(aqi)
     tip = get_health_tip(aqi)
-    pollutant_data = data["data"].get("iaqi", {})
+    pollutant_data = aqi_data["data"].get("iaqi", {})
 
-    st.markdown(f"""
-    <div style='background-color:{color}; padding:25px; border-radius:15px; border: 2px solid black;'>
-        <div style='background-color: rgba(255,255,255,0.85); padding: 15px; border-radius: 10px;'>
-            <h2 style='color:black;'>📍 {city}</h2>
-            <h1 style='color:black;'>🌫️ AQI: {aqi} - {category}</h1>
-            <p style='color:black;'>Nearest station: {station} <br> Updated: {updated}</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"<div class='card'><h2>📍 {city}</h2><h3 style='color:{color}'>🌫️ AQI: {aqi} - {category}</h3><p>Station: {station} | Updated: {updated}</p></div>", unsafe_allow_html=True)
+    st.success(f"🧠 Health Tip: {tip}")
 
-    st.info(tip)
+    col1, col2 = st.columns(2)
 
-    if weather.get("main"):
-        st.subheader("🌦️ Local Weather Conditions")
-        temp = weather["main"]["temp"]
-        desc = weather["weather"][0]["description"].capitalize()
-        humidity = weather["main"]["humidity"]
-        wind = weather["wind"]["speed"]
-        icon_code = weather["weather"][0]["icon"]
-        icon_url = f"http://openweathermap.org/img/wn/{icon_code}@2x.png"
-        st.image(icon_url, width=80)
-        st.write(f"**Temperature:** {temp} °C")
-        st.write(f"**Weather:** {desc}")
-        st.write(f"**Humidity:** {humidity}%")
-        st.write(f"**Wind Speed:** {wind} m/s")
+    with col1:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("🌦️ Current Weather")
+        st.write(f"**Temperature:** {weather['main']['temp']} °C")
+        st.write(f"**Condition:** {weather['weather'][0]['description'].capitalize()}")
+        st.write(f"**Humidity:** {weather['main']['humidity']}%")
+        st.write(f"**Wind Speed:** {weather['wind']['speed']} m/s")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    if forecast.get("list"):
-        st.subheader("🔮 3-Day Weather Forecast")
+    with col2:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("🔮 3-Day Forecast")
         forecast_by_day = {}
         for item in forecast["list"]:
             date = item["dt_txt"].split(" ")[0]
             if date not in forecast_by_day:
                 forecast_by_day[date] = []
             forecast_by_day[date].append(item)
-
         count = 0
         for date, entries in forecast_by_day.items():
             if count == 3:
                 break
-            avg_temp = sum(entry["main"]["temp"] for entry in entries) / len(entries)
-            descs = [entry["weather"][0]["description"] for entry in entries]
-            most_common_desc = max(set(descs), key=descs.count).capitalize()
-            st.write(f"📅 {date}: {most_common_desc}, 🌡️ Avg Temp: {avg_temp:.1f} °C")
+            temps = [e['main']['temp'] for e in entries]
+            avg_temp = sum(temps) / len(temps)
+            descs = [e['weather'][0]['description'] for e in entries]
+            common_desc = max(set(descs), key=descs.count).capitalize()
+            st.write(f"📅 {date}: {common_desc}, Avg Temp: {avg_temp:.1f} °C")
             count += 1
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    if pollutant_data:
-        st.subheader("🧪 View Pollutant Levels")
-        for key, val in pollutant_data.items():
-            explanation = pollutant_info.get(key.lower(), "No info available.")
-            with st.expander(f"**{key.upper()}**: {val['v']}"):
-                st.markdown(f"🔍 {explanation}")
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.subheader("🧪 Pollutant Details")
+    for key, val in pollutant_data.items():
+        if key.lower() in pollutant_info:
+            with st.expander(f"{key.upper()} - {val['v']}"):
+                st.write(pollutant_info[key.lower()])
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.subheader("📍 Nearest AQI Station")
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.subheader("📍 AQI Monitoring Station")
     show_map(lat, lon, station)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.success(f"🌱 Tip of the Day: {get_random_tip()}")
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.subheader("🌱 Tip of the Day")
+    st.success(get_random_tip())
+    st.markdown("</div>", unsafe_allow_html=True)
 
 else:
     st.error("❌ Could not load AQI data. Try again later.")
