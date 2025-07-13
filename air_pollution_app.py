@@ -34,10 +34,21 @@ h1, h2, h3 {{ color: {text_color}; }}
 .stButton>button {{ background-color: #1f77d0; color: white; border-radius: 10px; padding: 0.6em 1.2em; font-weight: bold; border: none; }}
 .card {{ background-color: {card_color}; padding: 1.5rem; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }}
 @media screen and (max-width: 768px) {{ .card {{ padding: 1rem; }} }}
-</style>""", unsafe_allow_html=True)
+.navbar {{ position: fixed; top: 0; width: 100%; background-color: {nav_color}; display: flex; justify-content: center; gap: 1.5rem; padding: 0.7rem 1rem; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+.navbar a {{ color: {text_color}; text-decoration: none; font-weight: 500; font-size: 1rem; padding: 0.3rem 0.6rem; transition: all 0.2s; }}
+.navbar a:hover {{ color: #1f77d0; }}
+</style>
+<div class="navbar">
+<a href="#home">🏠 Home</a>
+<a href="#aqi">🌫️ AQI</a>
+<a href="#weather">🌦️ Weather</a>
+<a href="#map">🗺️ Map</a>
+<a href="#tips">💡 Tips</a>
+</div>""", unsafe_allow_html=True)
 
 # --- AQI RANGE CHART ---
 st.markdown("""
+<a name='home'></a>
 ### 📊 AQI Categories Chart
 | AQI Range | Category | Color |
 |-----------|----------|--------|
@@ -110,6 +121,7 @@ def show_map(lat, lon, station_name):
     st_folium(m, width=700, height=300)
 
 # --- APP UI ---
+st.markdown("<a name='aqi'></a>", unsafe_allow_html=True)
 st.title("🌍 Clean Air Monitor")
 st.caption("Real-time AQI with insights, tips, and weather forecast.")
 
@@ -147,6 +159,7 @@ if data.get("status") == "ok":
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown("<a name='weather'></a>", unsafe_allow_html=True)
     st.subheader("🌦️ Current Weather")
     if weather.get("main"):
         st.write(f"**Temp:** {weather['main']['temp']} °C")
@@ -166,9 +179,11 @@ if data.get("status") == "ok":
             descs = [e["weather"][0]["description"] for e in entries]
             st.write(f"📅 {d}: {max(set(descs), key=descs.count).capitalize()} | Avg Temp: {sum(temps)/len(temps):.1f} °C")
 
+    st.markdown("<a name='map'></a>", unsafe_allow_html=True)
     st.subheader("📍 AQI Station Map")
     show_map(lat, lon, station)
 
+    st.markdown("<a name='tips'></a>", unsafe_allow_html=True)
     st.success(f"💡 Tip of the Day: {get_random_tip()}")
 
     with st.expander("📊 View Pollutants"):
@@ -176,7 +191,3 @@ if data.get("status") == "ok":
             st.write(f"**{k.upper()}**: {v['v']}")
 else:
     st.error("❌ Failed to fetch AQI data. Try again later.")
-
-
-    
-   
