@@ -36,6 +36,19 @@ h1, h2, h3 {{ color: {text_color}; }}
 @media screen and (max-width: 768px) {{ .card {{ padding: 1rem; }} }}
 </style>""", unsafe_allow_html=True)
 
+# --- AQI RANGE CHART ---
+st.markdown("""
+### 📊 AQI Categories Chart
+| AQI Range | Category | Color |
+|-----------|----------|--------|
+| 0–50      | 🟢 Good | Green |
+| 51–100    | 🟡 Moderate | Yellow |
+| 101–150   | 🟠 Sensitive Groups | Orange |
+| 151–200   | 🔴 Unhealthy | Red |
+| 201–300   | 🟣 Very Unhealthy | Purple |
+| 301+      | ⚫ Hazardous | Maroon |
+""")
+
 # --- API KEYS ---
 WAQI_TOKEN = "f1c44fa6a73e8ac0b6d9f23b3166481ff6a281d2"
 OPENWEATHER_API_KEY = "19ad1b0624de0640e7b607d1a8b52314"
@@ -163,3 +176,7 @@ if data.get("status") == "ok":
             st.write(f"**{k.upper()}**: {v['v']}")
 else:
     st.error("❌ Failed to fetch AQI data. Try again later.")
+
+
+    
+   
