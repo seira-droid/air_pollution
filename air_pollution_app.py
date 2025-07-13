@@ -8,7 +8,8 @@ from streamlit_folium import st_folium
 import random
 import os
 
-st.set_page_config(page_title="Air Pollution App", layout="wide")
+# --- CONFIG ---
+st.set_page_config(page_title="Air Pollution Dashboard", layout="wide")
 
 st.markdown("""
     <style>
@@ -18,8 +19,20 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# --- API TOKEN & FILE ---
 WAQI_TOKEN = "f1c44fa6a73e8ac0b6d9f23b3166481ff6a281d2"
 aqi_log_file = "aqi_log.csv"
+
+# --- FUNCTIONS ---
+
+def get_user_location():
+    try:
+        data = requests.get("https://ipinfo.io").json()
+        lat, lon = map(float, data["loc"].split(","))
+        city = data.get("city", "Unknown")
+        return lat, lon, city
+    except:
+        return 9.31575, 76.61513, "Chengannur"
 
 def get_aqi_data(lat, lon):
     url = f"https://api.waqi.info/feed/geo:{lat};{lon}/?token={WAQI_TOKEN}"
@@ -27,31 +40,31 @@ def get_aqi_data(lat, lon):
 
 def get_aqi_category(aqi):
     if aqi <= 50:
-        return "🟢 Good", "#66bb6a"
+        return "🟢 Good", "#A8E6CF"
     elif aqi <= 100:
-        return "🟡 Moderate", "#ffeb3b"
+        return "🟡 Moderate", "#FFD3B6"
     elif aqi <= 150:
-        return "🟠 Unhealthy for Sensitive Groups", "#ffb74d"
+        return "🟠 Unhealthy for Sensitive Groups", "#FFAAA5"
     elif aqi <= 200:
-        return "🔴 Unhealthy", "#ef5350"
+        return "🔴 Unhealthy", "#FF8C94"
     elif aqi <= 300:
-        return "🟣 Very Unhealthy", "#ba68c8"
+        return "🟣 Very Unhealthy", "#D291BC"
     else:
-        return "⚫ Hazardous", "#8d6e63"
+        return "⚫ Hazardous", "#B5838D"
 
 def get_health_tip(aqi):
     if aqi <= 50:
-        return "✅ Clean air today! Enjoy your outdoor activities."
+        return "✅ Air is clean. Great day to be outdoors!"
     elif aqi <= 100:
-        return "☁️ Sensitive groups should take it easy outdoors."
+        return "☁️ Sensitive groups should reduce prolonged outdoor exertion."
     elif aqi <= 150:
-        return "😷 Try wearing a mask outdoors."
+        return "😷 Avoid heavy outdoor exercise. Consider wearing a mask."
     elif aqi <= 200:
-        return "⚠️ Everyone should reduce outdoor activities."
+        return "⚠️ Everyone should limit prolonged outdoor exertion."
     elif aqi <= 300:
-        return "❌ Stay indoors if possible."
+        return "❌ Stay indoors and use air purifiers."
     else:
-        return "🚨 Avoid outdoor exposure completely."
+        return "🚨 Health emergency! Avoid all outdoor activities."
 
 def log_aqi(city, aqi):
     today = datetime.date.today().isoformat()
@@ -65,70 +78,92 @@ def log_aqi(city, aqi):
 
 def get_random_tip():
     tips = [
-        "💡 Keep indoor plants like peace lily or aloe vera.",
-        "🌀 Use HEPA filters at home.",
-        "📱 Check AQI before going out!",
-        "🚴‍♀️ Use public transport on poor AQI days.",
+        "💡 Use indoor plants like spider plant to improve air quality.",
+        "🌀 Use HEPA filters to clean indoor air.",
+        "🏃‍♀️ Exercise indoors on high AQI days.",
+        "📱 Check AQI before outdoor plans!",
+        "🪟 Close windows during high pollution times."
     ]
     return random.choice(tips)
 
-def show_map(lat, lon, name="Location"):
+def show_map(lat, lon, station_name):
     m = folium.Map(location=[lat, lon], zoom_start=10)
-    folium.Marker([lat, lon], tooltip=name, icon=folium.Icon(color="blue")).add_to(m)
+    folium.Marker([lat, lon], tooltip=station_name, icon=folium.Icon(color="blue")).add_to(m)
     st_folium(m, width=700, height=300)
 
-# --- APP START ---
-st.title("🌍 Real-Time Air Pollution Dashboard")
-st.caption("Track AQI, pollutants, health risks, and more.")
+# --- MAIN APP ---
 
-st.markdown("### 📍 Enter Your Location Coordinates")
+st.title("🌍 Air Pollution Dashboard")
+st.caption("Real-time AQI with insights, history, health tips, and more.")
 
-lat = st.number_input("Latitude", value=9.3157, format="%.6f")
-lon = st.number_input("Longitude", value=76.6151, format="%.6f")
+with st.spinner("📱 Fetching location and AQI data..."):
+    lat, lon, city = get_user_location()
+    data = get_aqi_data(lat, lon)
 
-if st.button("🔍 Get Air Quality Data"):
-    with st.spinner("Fetching AQI data..."):
-        data = get_aqi_data(lat, lon)
+if data["status"] == "ok":
+    aqi = data["data"]["aqi"]
+    station = data["data"]["city"]["name"]
+    updated = data["data"]["time"]["s"]
+    category, color = get_aqi_category(aqi)
+    tip = get_health_tip(aqi)
+    pollutant_data = data["data"].get("iaqi", {})
 
-    if data["status"] == "ok":
-        aqi = data["data"]["aqi"]
-        station = data["data"]["city"]["name"]
-        updated = data["data"]["time"]["s"]
-        city = station.split(",")[0]
-        pollutant_data = data["data"].get("iaqi", {})
+    log_aqi(city, aqi)
 
-        category, color = get_aqi_category(aqi)
-        tip = get_health_tip(aqi)
+    st.markdown(f"""
+    <div style='background-color:{color}; padding:20px; border-radius:10px'>
+        <h2 style='color:black;'>📍 {city}</h2>
+        <h1 style='color:black;'>🌫️ AQI: {aqi} - {category}</h1>
+        <p style='color:black;'>Nearest station: {station} <br> Updated: {updated}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-        log_aqi(city, aqi)
+    st.info(tip)
 
-        st.markdown(f"""
-        <div style='background-color:{color}; padding:20px; border-radius:10px'>
-            <h2 style='color:white;'>📍 {city}</h2>
-            <h1 style='color:white;'>🌫️ AQI: {aqi} - {category}</h1>
-            <p style='color:white;'>Station: {station} <br> Updated: {updated}</p>
-        </div>
-        """, unsafe_allow_html=True)
+    with st.expander("🧪 View Pollutant Levels"):
+        for key, val in pollutant_data.items():
+            st.write(f"**{key.upper()}**: {val['v']}")
 
-        st.info(tip)
-        st.success(f"🌱 Tip of the Day: {get_random_tip()}")
+    st.subheader("📍 Nearest AQI Station")
+    show_map(lat, lon, station)
 
-        with st.expander("🧪 Pollutants Detected"):
-            for key, val in pollutant_data.items():
-                st.write(f"**{key.upper()}**: {val['v']}")
+    st.success(f"🌱 Tip of the Day: {get_random_tip()}")
 
-        st.subheader("📍 Map View")
-        show_map(lat, lon, station)
+    if os.path.exists(aqi_log_file):
+        df = pd.read_csv(aqi_log_file)
+        df_city = df[df["city"] == city]
+        if not df_city.empty:
+            st.subheader("📈 AQI Trend (Saved Daily)")
+            fig = px.line(df_city, x="date", y="aqi", title="AQI Over Time", markers=True)
+            st.plotly_chart(fig)
+            st.download_button("⬇️ Download AQI History", data=df_city.to_csv(index=False),
+                               file_name=f"{city}_aqi_history.csv")
+else:
+    st.error("❌ Could not load AQI data. Try again later.")
 
-        # Historical Chart
-        if os.path.exists(aqi_log_file):
-            df = pd.read_csv(aqi_log_file)
-            df_city = df[df["city"] == city]
-            if not df_city.empty:
-                st.subheader("📈 AQI Trend (Local History)")
-                fig = px.line(df_city, x="date", y="aqi", title=f"AQI Trend for {city}", markers=True)
-                st.plotly_chart(fig)
-                st.download_button("⬇️ Download AQI Data", data=df_city.to_csv(index=False), file_name=f"{city}_aqi_history.csv")
-    else:
-        st.error("❌ Could not retrieve AQI data for this location.")
+st.markdown("---")
+st.subheader("🏙️ Compare Two Cities")
+
+city_coords = {
+    "Chengannur": (9.31575, 76.61513),
+    "Kochi": (9.9312, 76.2673),
+    "Delhi": (28.6139, 77.2090),
+    "Mumbai": (19.0760, 72.8777),
+    "Bangalore": (12.9716, 77.5946)
+}
+
+col1, col2 = st.columns(2)
+with col1:
+    city1 = st.selectbox("City 1", city_coords.keys())
+with col2:
+    city2 = st.selectbox("City 2", city_coords.keys(), index=1)
+
+lat1, lon1 = city_coords[city1]
+lat2, lon2 = city_coords[city2]
+
+aqi1 = get_aqi_data(lat1, lon1)["data"]["aqi"]
+aqi2 = get_aqi_data(lat2, lon2)["data"]["aqi"]
+
+st.metric(label=f"{city1}", value=aqi1)
+st.metric(label=f"{city2}", value=aqi2)
 
