@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 import pandas as pd
 import datetime
-import plotly.express as px
 import folium
 from streamlit_folium import st_folium
 import random
@@ -12,7 +11,6 @@ import json
 
 # --- CONFIG ---
 st.set_page_config(page_title="Clean Air Monitor", layout="wide")
-
 st.markdown("""
     <style>
     .main > div:first-child {
@@ -23,7 +21,7 @@ st.markdown("""
 
 # --- API TOKEN & FILE ---
 WAQI_TOKEN = "f1c44fa6a73e8ac0b6d9f23b3166481ff6a281d2"
-OPENWEATHER_API_KEY = "your_openweather_api_key"
+OPENWEATHER_API_KEY = "your_openweather_api_key"  # Replace this with your real key
 
 # --- FUNCTIONS ---
 @st.cache_data(ttl=600)
@@ -114,7 +112,6 @@ def show_map(lat, lon, station_name):
     st_folium(m, width=700, height=300)
 
 # --- MAIN APP ---
-
 st.title("🌍 Clean Air Monitor")
 st.caption("Real-time AQI with insights, health tips, and weather.")
 
@@ -190,12 +187,23 @@ if data["status"] == "ok":
 
         if forecast.get("list"):
             st.subheader("🔮 3-Day Weather Forecast")
-            forecast_list = forecast["list"][:24*3:8]  # Every 8th entry ≈ 24 hours
-            for item in forecast_list:
+            forecast_by_day = {}
+
+            for item in forecast["list"]:
                 date = item["dt_txt"].split(" ")[0]
-                temp = item["main"]["temp"]
-                desc = item["weather"][0]["description"].capitalize()
-                st.write(f"📅 {date}: {desc}, 🌡️ {temp} °C")
+                if date not in forecast_by_day:
+                    forecast_by_day[date] = []
+                forecast_by_day[date].append(item)
+
+            count = 0
+            for date, entries in forecast_by_day.items():
+                if count == 3:
+                    break
+                avg_temp = sum(entry["main"]["temp"] for entry in entries) / len(entries)
+                descs = [entry["weather"][0]["description"] for entry in entries]
+                most_common_desc = max(set(descs), key=descs.count).capitalize()
+                st.write(f"📅 {date}: {most_common_desc}, 🌡️ Avg Temp: {avg_temp:.1f} °C")
+                count += 1
 
         with st.expander("🧪 View Pollutant Levels"):
             for key, val in pollutant_data.items():
