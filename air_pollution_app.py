@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import pandas as pd
 import datetime
 import folium
 from streamlit_folium import st_folium
@@ -15,6 +14,29 @@ st.markdown("""
     <style>
     .main > div:first-child {
         padding-top: 0rem;
+    }
+    body {
+        background-color: #f5f7fa;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    h1, h2, h3, h4, h5 {
+        color: #222;
+    }
+    .stButton>button {
+        background-color: #3c91e6;
+        color: white;
+        border-radius: 10px;
+        padding: 0.6em 1.2em;
+        font-weight: bold;
+        border: none;
+        transition: 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #1f77d0;
+    }
+    .stTextInput>div>div>input {
+        border-radius: 10px;
+        border: 2px solid #ddd;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -34,7 +56,7 @@ def get_aqi_category(aqi):
     elif aqi <= 200:
         return "🔴 Unhealthy (151–200)", "#FF8C94"
     elif aqi <= 300:
-        return "🔹 Very Unhealthy (201–300)", "#D291BC"
+        return "🟣 Very Unhealthy (201–300)", "#D291BC"
     else:
         return "⚫ Hazardous (301+)", "#B5838D"
 
@@ -45,7 +67,7 @@ def get_health_tip(aqi):
     elif aqi <= 100:
         return "☁️ Sensitive groups should reduce prolonged outdoor exertion."
     elif aqi <= 150:
-        return "🤷 Avoid heavy outdoor exercise. Consider wearing a mask."
+        return "😷 Avoid heavy outdoor exercise. Consider wearing a mask."
     elif aqi <= 200:
         return "⚠️ Everyone should limit prolonged outdoor exertion."
     elif aqi <= 300:
@@ -57,10 +79,10 @@ def get_health_tip(aqi):
 def get_random_tip():
     tips = [
         "💡 Use indoor plants like spider plant to improve air quality.",
-        "💨 Use HEPA filters to clean indoor air.",
+        "🌀 Use HEPA filters to clean indoor air.",
         "🏃‍♀️ Exercise indoors on high AQI days.",
         "📱 Check AQI before outdoor plans!",
-        "🪺 Close windows during high pollution times."
+        "🪟 Close windows during high pollution times."
     ]
     return random.choice(tips)
 
@@ -173,16 +195,14 @@ if data["status"] == "ok":
     tip = get_health_tip(aqi)
     pollutant_data = data["data"].get("iaqi", {})
 
-    # Colored section with better visibility
     st.markdown(f"""
     <div style='background-color:{color}; padding:25px; border-radius:15px; border: 2px solid black;'>
         <div style='background-color: rgba(255,255,255,0.85); padding: 15px; border-radius: 10px;'>
-    """, unsafe_allow_html=True)
-
-    st.markdown(f"""
-        <h2 style='color:black;'>📍 {city}</h2>
-        <h1 style='color:black;'>🌫️ AQI: {aqi} - {category}</h1>
-        <p style='color:black;'>Nearest station: {station} <br> Updated: {updated}</p>
+            <h2 style='color:black;'>📍 {city}</h2>
+            <h1 style='color:black;'>🌫️ AQI: {aqi} - {category}</h1>
+            <p style='color:black;'>Nearest station: {station} <br> Updated: {updated}</p>
+        </div>
+    </div>
     """, unsafe_allow_html=True)
 
     st.info(tip)
@@ -195,7 +215,6 @@ if data["status"] == "ok":
         wind = weather["wind"]["speed"]
         icon_code = weather["weather"][0]["icon"]
         icon_url = f"http://openweathermap.org/img/wn/{icon_code}@2x.png"
-
         st.image(icon_url, width=80)
         st.write(f"**Temperature:** {temp} °C")
         st.write(f"**Weather:** {desc}")
@@ -218,7 +237,7 @@ if data["status"] == "ok":
             avg_temp = sum(entry["main"]["temp"] for entry in entries) / len(entries)
             descs = [entry["weather"][0]["description"] for entry in entries]
             most_common_desc = max(set(descs), key=descs.count).capitalize()
-            st.write(f"🗓️ {date}: {most_common_desc}, 🌡️ Avg Temp: {avg_temp:.1f} °C")
+            st.write(f"📅 {date}: {most_common_desc}, 🌡️ Avg Temp: {avg_temp:.1f} °C")
             count += 1
 
     if pollutant_data:
@@ -226,14 +245,12 @@ if data["status"] == "ok":
         for key, val in pollutant_data.items():
             explanation = pollutant_info.get(key.lower(), "No info available.")
             with st.expander(f"**{key.upper()}**: {val['v']}"):
-                st.markdown(f"🔎 {explanation}")
+                st.markdown(f"🔍 {explanation}")
 
     st.subheader("📍 Nearest AQI Station")
     show_map(lat, lon, station)
 
     st.success(f"🌱 Tip of the Day: {get_random_tip()}")
-    st.markdown("</div></div>", unsafe_allow_html=True)
 
 else:
     st.error("❌ Could not load AQI data. Try again later.")
-
