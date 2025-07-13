@@ -63,8 +63,11 @@ def load_lottie_url(url):
         return None
     return r.json()
 
-lottie_air = load_lottie_url("https://lottie.host/64f76a6e-c002-4c2e-b2c1-fb2d09fdba3d/WnmzQZPtCk.json")
-st_lottie(lottie_air, height=180, key="air-quality")
+lottie_air = load_lottie_url("https://assets9.lottiefiles.com/packages/lf20_tll0j4bb.json")
+if lottie_air:
+    st_lottie(lottie_air, height=180, key="air-quality")
+else:
+    st.warning("⚠️ Lottie animation failed to load. Please check your connection or the URL.")
 
 # --- AI CHATBOT (Mock Version) ---
 st.markdown("<div class='card'>", unsafe_allow_html=True)
@@ -229,3 +232,4 @@ if data["status"] == "ok":
     st.success(f"🌱 Tip of the Day: {get_random_tip()}")
 else:
     st.error("❌ Could not load AQI data. Try again later.")
+
