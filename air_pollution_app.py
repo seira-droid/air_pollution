@@ -8,7 +8,6 @@ import os
 import streamlit.components.v1 as components
 import json
 from streamlit_lottie import st_lottie
-from openai import OpenAI
 
 # --- CONFIG ---
 st.set_page_config(page_title="Clean Air Monitor", layout="wide")
@@ -54,6 +53,20 @@ st.markdown(f"""
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         margin-bottom: 1.5rem;
     }}
+    .legend-box {{
+        background: #fff;
+        border-radius: 10px;
+        padding: 10px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        margin: 1em 0;
+    }}
+    .legend-box span {{
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        margin-right: 5px;
+        border-radius: 3px;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -69,36 +82,6 @@ if lottie_air:
     st_lottie(lottie_air, height=180, key="air-quality")
 else:
     st.warning("⚠️ Lottie animation failed to load. Please check your connection or the URL.")
-
-# --- AI CHATBOT (Real GPT API) ---
-st.markdown("<div class='card'>", unsafe_allow_html=True)
-st.subheader("🤖 Ask AirBot - Your AQI Assistant")
-
-if "OPENAI_API_KEY" in st.secrets:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-    user_question = st.text_input("Ask about AQI, weather, or health tips")
-
-    if user_question:
-        with st.spinner("AirBot is thinking..."):
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are AirBot, a helpful assistant that answers air quality and weather related questions."},
-                        {"role": "user", "content": user_question}
-                    ],
-                    temperature=0.7,
-                    max_tokens=200
-                )
-                reply = response.choices[0].message.content
-                st.success(reply)
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
-else:
-    st.warning("⚠️ OpenAI API key not found. Chatbot disabled.")
-
-st.markdown("</div>", unsafe_allow_html=True)
 
 # --- AQI AND WEATHER CONFIG ---
 WAQI_TOKEN = "f1c44fa6a73e8ac0b6d9f23b3166481ff6a281d2"
@@ -208,6 +191,15 @@ if data["status"] == "ok":
         <h1>🌫️ AQI: {aqi} - {category}</h1>
         <p>Nearest station: {station} <br> Updated: {updated}</p>
     </div>
+    <div class='legend-box'>
+        <strong>AQI Levels:</strong><br>
+        <span style='background:#A8E6CF'></span> Good (0-50)<br>
+        <span style='background:#FFD3B6'></span> Moderate (51-100)<br>
+        <span style='background:#FFAAA5'></span> Unhealthy for Sensitive Groups (101-150)<br>
+        <span style='background:#FF8C94'></span> Unhealthy (151-200)<br>
+        <span style='background:#D291BC'></span> Very Unhealthy (201-300)<br>
+        <span style='background:#B5838D'></span> Hazardous (301+)<br>
+    </div>
     """, unsafe_allow_html=True)
 
     with st.expander("📈 View Details"):
@@ -236,7 +228,7 @@ if data["status"] == "ok":
 
         with st.expander("🧪 Pollutant Levels"):
             for key, val in pollutant_data.items():
-                st.write(f"**{key.upper()}**: {val['v']}")
+                st.markdown(f"<div class='card'><strong>{key.upper()}</strong>: {val['v']}</div>", unsafe_allow_html=True)
 
         st.subheader("📍 Nearest AQI Station")
         show_map(lat, lon, station)
