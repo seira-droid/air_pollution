@@ -34,7 +34,7 @@ def get_aqi_category(aqi):
     elif aqi <= 200:
         return "🔴 Unhealthy (151–200)", "#FF8C94"
     elif aqi <= 300:
-        return "🟣 Very Unhealthy (201–300)", "#D291BC"
+        return "🔹 Very Unhealthy (201–300)", "#D291BC"
     else:
         return "⚫ Hazardous (301+)", "#B5838D"
 
@@ -45,7 +45,7 @@ def get_health_tip(aqi):
     elif aqi <= 100:
         return "☁️ Sensitive groups should reduce prolonged outdoor exertion."
     elif aqi <= 150:
-        return "😷 Avoid heavy outdoor exercise. Consider wearing a mask."
+        return "🤷 Avoid heavy outdoor exercise. Consider wearing a mask."
     elif aqi <= 200:
         return "⚠️ Everyone should limit prolonged outdoor exertion."
     elif aqi <= 300:
@@ -57,10 +57,10 @@ def get_health_tip(aqi):
 def get_random_tip():
     tips = [
         "💡 Use indoor plants like spider plant to improve air quality.",
-        "🌀 Use HEPA filters to clean indoor air.",
+        "💨 Use HEPA filters to clean indoor air.",
         "🏃‍♀️ Exercise indoors on high AQI days.",
         "📱 Check AQI before outdoor plans!",
-        "🪟 Close windows during high pollution times."
+        "🪺 Close windows during high pollution times."
     ]
     return random.choice(tips)
 
@@ -95,8 +95,7 @@ def get_forecast_data(lat, lon):
 def get_browser_location():
     location_param = st.query_params.get("location")
     if not location_param:
-        components.html(
-            """
+        components.html("""
             <script>
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -109,9 +108,7 @@ def get_browser_location():
                 }
             );
             </script>
-            """,
-            height=0
-        )
+        """, height=0)
         st.info("🔄 Attempting to fetch GPS location... please allow it in your browser.")
         st.stop()
 
@@ -141,11 +138,7 @@ else:
         try:
             res = requests.get(
                 "http://api.openweathermap.org/geo/1.0/direct",
-                params={
-                    "q": city_input,
-                    "limit": 1,
-                    "appid": OPENWEATHER_API_KEY
-                },
+                params={"q": city_input, "limit": 1, "appid": OPENWEATHER_API_KEY},
                 timeout=5
             )
             res.raise_for_status()
@@ -180,7 +173,11 @@ if data["status"] == "ok":
     tip = get_health_tip(aqi)
     pollutant_data = data["data"].get("iaqi", {})
 
-    st.markdown(f"<div style='background-color:{color}; padding:30px; border-radius:10px'>", unsafe_allow_html=True)
+    # Colored section with better visibility
+    st.markdown(f"""
+    <div style='background-color:{color}; padding:25px; border-radius:15px; border: 2px solid black;'>
+        <div style='background-color: rgba(255,255,255,0.85); padding: 15px; border-radius: 10px;'>
+    """, unsafe_allow_html=True)
 
     st.markdown(f"""
         <h2 style='color:black;'>📍 {city}</h2>
@@ -221,7 +218,7 @@ if data["status"] == "ok":
             avg_temp = sum(entry["main"]["temp"] for entry in entries) / len(entries)
             descs = [entry["weather"][0]["description"] for entry in entries]
             most_common_desc = max(set(descs), key=descs.count).capitalize()
-            st.write(f"📅 {date}: {most_common_desc}, 🌡️ Avg Temp: {avg_temp:.1f} °C")
+            st.write(f"🗓️ {date}: {most_common_desc}, 🌡️ Avg Temp: {avg_temp:.1f} °C")
             count += 1
 
     if pollutant_data:
@@ -235,7 +232,7 @@ if data["status"] == "ok":
     show_map(lat, lon, station)
 
     st.success(f"🌱 Tip of the Day: {get_random_tip()}")
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 else:
     st.error("❌ Could not load AQI data. Try again later.")
